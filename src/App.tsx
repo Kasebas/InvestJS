@@ -23,6 +23,7 @@ import {
 import "./App.css";
 import {
   createVault,
+  deleteVault,
   hasVault,
   saveVault,
   unlockVault,
@@ -63,94 +64,11 @@ type VaultData = {
   transactions: Transaction[];
 };
 
-const initialPositions: Position[] = [
-  {
-    id: 1,
-    symbol: "META",
-    name: "Meta Platforms",
-    category: "Acciones",
-    quantity: 12,
-    price: 495.2,
-    invested: 5240,
-    currency: "USD",
-    color: "#d8704f",
-  },
-  {
-    id: 2,
-    symbol: "NVDA",
-    name: "NVIDIA Corporation",
-    category: "Acciones",
-    quantity: 18,
-    price: 128.4,
-    invested: 1875,
-    currency: "USD",
-    color: "#2d8a70",
-  },
-  {
-    id: 3,
-    symbol: "GLD",
-    name: "SPDR Gold Shares",
-    category: "Oro",
-    quantity: 8,
-    price: 242.8,
-    invested: 1680,
-    currency: "USD",
-    color: "#d4a247",
-  },
-  {
-    id: 4,
-    symbol: "MSFT",
-    name: "Microsoft Corporation",
-    category: "Acciones",
-    quantity: 5,
-    price: 417.9,
-    invested: 1760,
-    currency: "USD",
-    color: "#456f9c",
-  },
-];
+const initialPositions: Position[] = [];
 
-const history = [
-  { month: "Ene", value: 8200 },
-  { month: "Feb", value: 8910 },
-  { month: "Mar", value: 8650 },
-  { month: "Abr", value: 10120 },
-  { month: "May", value: 10980 },
-  { month: "Jun", value: 11940 },
-  { month: "Jul", value: 11680 },
-  { month: "Ago", value: 12540 },
-  { month: "Sep", value: 13850 },
-];
+const history: { month: string; value: number }[] = [];
 
-const initialTransactions: Transaction[] = [
-  {
-    id: 1,
-    date: "2026-08-28",
-    symbol: "META",
-    type: "Compra",
-    quantity: 4,
-    amount: 1980,
-    currency: "USD",
-  },
-  {
-    id: 2,
-    date: "2026-08-18",
-    symbol: "GLD",
-    type: "Compra",
-    quantity: 3,
-    amount: 711,
-    currency: "USD",
-  },
-  {
-    id: 3,
-    date: "2026-07-30",
-    symbol: "MSFT",
-    type: "Dividendo",
-    quantity: 0,
-    amount: 18.5,
-    currency: "USD",
-  },
-];
+const initialTransactions: Transaction[] = [];
 
 function App() {
   const [positions, setPositions] = useState(initialPositions);
@@ -243,6 +161,14 @@ function App() {
     } catch {
       setVaultError("El cambio se aplicó, pero no se pudo guardar localmente.");
     }
+  };
+  const resetVault = async () => {
+    if (!window.confirm("Se borrarán todas las inversiones y operaciones locales. Esta acción no se puede deshacer.")) return;
+    await deleteVault();
+    setPositions([]);
+    setTransactions([]);
+    setVaultPassword("");
+    setVaultStatus("setup");
   };
   const exportBackup = () => downloadJsonBackup({ positions, transactions });
   const exportTransactions = () => downloadTransactionsCsv(transactions);
@@ -464,6 +390,9 @@ function App() {
           >
             Bloquear
           </button>
+          <button className="lock-button" type="button" onClick={() => void resetVault()}>
+            Borrar datos
+          </button>
         </div>
       </aside>
       <main className="main-content" id="dashboard">
@@ -552,8 +481,13 @@ function App() {
               </select>
             </div>
             <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={history}>
+              {history.length === 0 ? (
+                <div className="chart-empty">
+                  Añade una inversión para comenzar a ver la evolución de tu cartera.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={history}>
                   <defs>
                     <linearGradient id="valueFill" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="0%" stopColor="#d8704f" stopOpacity={0.3} />
@@ -585,8 +519,9 @@ function App() {
                     strokeWidth={3}
                     fill="url(#valueFill)"
                   />
-                </AreaChart>
-              </ResponsiveContainer>
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </article>
           <article className="panel allocation-panel">
@@ -773,7 +708,9 @@ function App() {
             </table>
           </div>
           {filteredPositions.length === 0 && (
-            <p className="filter-empty">No hay inversiones que coincidan con estos filtros.</p>
+            <p className="filter-empty">
+              No hay inversiones que coincidan con estos filtros.
+            </p>
           )}
         </section>
         <section className="panel transactions-panel" id="transactions">
@@ -794,7 +731,9 @@ function App() {
               <span className="sr-only">Filtrar por tipo de operación</span>
               <select
                 value={transactionTypeFilter}
-                onChange={(event) => setTransactionTypeFilter(event.target.value)}
+                onChange={(event) =>
+                  setTransactionTypeFilter(event.target.value)
+                }
               >
                 <option>Todas</option>
                 <option>Compra</option>
@@ -848,7 +787,9 @@ function App() {
             </table>
           </div>
           {filteredTransactions.length === 0 && (
-            <p className="filter-empty">No hay operaciones que coincidan con este filtro.</p>
+            <p className="filter-empty">
+              No hay operaciones que coincidan con este filtro.
+            </p>
           )}
         </section>
         <p className="privacy-note">

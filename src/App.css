@@ -241,6 +241,17 @@
   height: 218px;
   margin: 25px -5px -5px;
 }
+.chart-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+}
 .donut-wrap {
   width: 180px;
   height: 180px;

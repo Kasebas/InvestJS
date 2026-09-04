@@ -27,4 +27,6 @@ La primera versión incluye un dashboard responsive con métricas, evolución de
 
 El dashboard permite exportar un backup JSON completo, restaurarlo después de validarlo y exportar las operaciones a CSV. El JSON exportado no está cifrado, así que debe guardarse en un lugar privado; el almacenamiento interno sí permanece cifrado.
 
+Las carteras nuevas empiezan vacías. El botón **Borrar datos** elimina la bóveda local después de una confirmación y no se puede deshacer; exporta un backup antes de usarlo.
+
 GitHub Pages no ofrece autenticación de URL. El código publicado será accesible, por lo que no deben subirse inversiones, contraseñas, tokens ni claves de brokers.

@@ -68,6 +68,16 @@ const saveRecord = async (record: VaultRecord) => {
 
 export const hasVault = async () => Boolean(await getRecord());
 
+export const deleteVault = async () => {
+    const database = await openDatabase();
+    return new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction(STORE_NAME, "readwrite");
+        transaction.objectStore(STORE_NAME).delete(RECORD_KEY);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error ?? new Error("No se pudo borrar la bóveda"));
+    });
+};
+
 export const createVault = async <T>(value: T, password: string) => {
     const salt = crypto.getRandomValues(new Uint8Array(16));
     await encryptAndSave(value, password, salt);
