@@ -34,6 +34,12 @@ import {
   downloadTransactionsCsv,
   parseBackup,
 } from "./lib/backup";
+import {
+  calculateMetrics,
+  convertToBase,
+  parseMetaTraderCsv,
+  type Currency,
+} from "./lib/finance";
 
 type Position = {
   id: number;
@@ -67,8 +73,6 @@ type VaultData = {
 
 const initialPositions: Position[] = [];
 
-const history: { month: string; value: number }[] = [];
-
 const initialTransactions: Transaction[] = [];
 
 function App() {
@@ -81,6 +85,9 @@ function App() {
   const [vaultError, setVaultError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const importInputRef = useRef<HTMLInputElement>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+  const [baseCurrency, setBaseCurrency] = useState<Currency>("EUR");
+  const [usdToEur, setUsdToEur] = useState("0.92");
   const [positionSearch, setPositionSearch] = useState("");
   const [positionCategory, setPositionCategory] = useState("Todas");
   const [transactionTypeFilter, setTransactionTypeFilter] = useState("Todas");
@@ -93,6 +100,7 @@ function App() {
     quantity: "",
     invested: "",
     price: "",
+    currency: "USD" as Currency,
   });
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [editingTransactionId, setEditingTransactionId] = useState<
@@ -104,6 +112,7 @@ function App() {
     type: "Compra" as TransactionType,
     quantity: "",
     amount: "",
+    currency: "USD" as Currency,
   });
   useEffect(() => {
     hasVault()
@@ -197,24 +206,54 @@ function App() {
       );
     }
   };
-  const totalInvested = positions.reduce(
-    (total, position) => total + position.invested,
-    0,
-  );
-  const totalValue = positions.reduce(
-    (total, position) => total + position.quantity * position.price,
-    0,
-  );
-  const gain = totalValue - totalInvested;
+  const importCsv = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const imported = parseMetaTraderCsv(await file.text());
+      const nextTransactions = [...imported, ...transactions];
+      const result = recalculatePortfolio(positions, nextTransactions);
+      if ("error" in result) throw new Error(result.error);
+      const nextPositions = result.map((calculatedPosition) => {
+        const existing = positions.find((position) => position.symbol === calculatedPosition.symbol);
+        return existing ? { ...existing, ...calculatedPosition } : {
+          ...calculatedPosition,
+          id: Date.now(),
+          name: calculatedPosition.symbol,
+          category: "Acciones",
+          currency: "USD" as const,
+          color: "#876cbb",
+          isTransactionBased: true,
+        };
+      });
+      await persistData(nextPositions, nextTransactions);
+      setVaultError("");
+    } catch (error) {
+      setVaultError(error instanceof Error ? error.message : "No se pudo importar el CSV.");
+    }
+  };
+  const rate = Number(usdToEur) > 0 ? Number(usdToEur) : 0.92;
+  const metrics = calculateMetrics(positions, transactions, baseCurrency, rate);
+  const totalInvested = metrics.invested;
+  const totalValue = metrics.value;
+  const gain = metrics.unrealized;
+  const portfolioHistory = useMemo(() => {
+    return [...transactions].sort((left, right) => left.date.localeCompare(right.date) || left.id - right.id).reduce<{ month: string; value: number }[]>((history, transaction) => {
+      const previousValue = history.at(-1)?.value ?? 0;
+      const direction = transaction.type === "Venta" || transaction.type === "Dividendo" ? 1 : -1;
+      return [...history, { month: transaction.date.slice(0, 7), value: Math.max(0, previousValue + direction * convertToBase(transaction.amount, transaction.currency, baseCurrency, rate)) }];
+    }, []);
+  }, [baseCurrency, rate, transactions]);
   const gainPercent = totalInvested ? (gain / totalInvested) * 100 : 0;
   const allocation = useMemo(
     () =>
       positions.map((position) => ({
         name: position.symbol,
-        value: position.quantity * position.price,
+        value: convertToBase(position.quantity * position.price, position.currency, baseCurrency, rate),
         color: position.color,
       })),
-    [positions],
+    [baseCurrency, positions, rate],
   );
   const filteredPositions = useMemo(() => {
     const search = positionSearch.trim().toLowerCase();
@@ -247,6 +286,7 @@ function App() {
       quantity: "",
       invested: "",
       price: "",
+      currency: "USD",
     });
     setIsModalOpen(true);
   };
@@ -259,6 +299,7 @@ function App() {
       quantity: String(position.quantity),
       invested: String(position.invested),
       price: String(position.price),
+      currency: position.currency,
     });
     setIsModalOpen(true);
   };
@@ -271,7 +312,7 @@ function App() {
       type: transactionForm.type,
       quantity: Number(transactionForm.quantity) || 0,
       amount: Number(transactionForm.amount),
-      currency: "USD",
+      currency: transactionForm.currency,
     };
     if (!nextTransaction.symbol || !nextTransaction.amount) return;
     const nextTransactions = editingTransactionId
@@ -315,6 +356,7 @@ function App() {
       type: "Compra",
       quantity: "",
       amount: "",
+      currency: "USD",
     });
     setIsTransactionModalOpen(true);
   };
@@ -326,6 +368,7 @@ function App() {
       type: transaction.type,
       quantity: String(transaction.quantity),
       amount: String(transaction.amount),
+      currency: transaction.currency,
     });
     setIsTransactionModalOpen(true);
   };
@@ -362,7 +405,7 @@ function App() {
               id: Date.now(),
               name: calculatedPosition.symbol,
               category: "Acciones",
-              currency: "USD" as const,
+              currency: nextTransactions.find((transaction) => transaction.symbol === calculatedPosition.symbol)?.currency ?? "USD",
               color: "#876cbb",
             };
       });
@@ -377,6 +420,7 @@ function App() {
       quantity: Number(form.quantity),
       invested: Number(form.invested),
       price: Number(form.price),
+      currency: form.currency,
     };
     if (!next.symbol || !next.name || !next.quantity || !next.price) return;
     const nextPositions = editingId
@@ -388,7 +432,7 @@ function App() {
           {
             ...next,
             id: Date.now(),
-            currency: "USD" as const,
+            currency: next.currency,
             color: "#876cbb",
           },
         ];
@@ -497,6 +541,27 @@ function App() {
           </div>
           <div className="topbar-actions">
             <input
+              ref={csvInputRef}
+              className="sr-only"
+              type="file"
+              accept="text/csv,.csv"
+              onChange={importCsv}
+            />
+            <label className="header-control">
+              <span>Base</span>
+              <select value={baseCurrency} onChange={(event) => setBaseCurrency(event.target.value as Currency)}>
+                <option>EUR</option>
+                <option>USD</option>
+              </select>
+            </label>
+            <label className="header-control">
+              <span>USD/EUR</span>
+              <input type="number" min="0.0001" step="0.0001" value={usdToEur} onChange={(event) => setUsdToEur(event.target.value)} />
+            </label>
+            <button className="secondary-button" onClick={() => csvInputRef.current?.click()}>
+              Importar MetaTrader CSV
+            </button>
+            <input
               ref={importInputRef}
               className="sr-only"
               type="file"
@@ -517,7 +582,7 @@ function App() {
             </button>
             <button
               className="secondary-button"
-              onClick={() => setIsTransactionModalOpen(true)}
+              onClick={openNewTransaction}
             >
               Registrar operación
             </button>
@@ -532,7 +597,7 @@ function App() {
             <strong>
               {totalValue.toLocaleString("es-ES", {
                 style: "currency",
-                currency: "USD",
+                currency: baseCurrency,
                 maximumFractionDigits: 0,
               })}
             </strong>
@@ -545,7 +610,7 @@ function App() {
             <strong>
               {totalInvested.toLocaleString("es-ES", {
                 style: "currency",
-                currency: "USD",
+                currency: baseCurrency,
                 maximumFractionDigits: 0,
               })}
             </strong>
@@ -561,6 +626,12 @@ function App() {
             <span className="metric-change positive">
               <ArrowUpRight size={15} /> +{gainPercent.toFixed(1)}% total
             </span>
+            <span className="metric-note">
+              Realizada: {metrics.realized.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })}
+            </span>
+            <span className="metric-note">
+              Dividendos: {metrics.dividends.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })} · Comisiones: {metrics.fees.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })}
+            </span>
           </article>
         </section>
         <section className="charts-grid">
@@ -575,14 +646,14 @@ function App() {
               </select>
             </div>
             <div className="chart-wrap">
-              {history.length === 0 ? (
+              {portfolioHistory.length === 0 ? (
                 <div className="chart-empty">
                   Añade una inversión para comenzar a ver la evolución de tu
                   cartera.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={history}>
+                  <AreaChart data={portfolioHistory}>
                     <defs>
                       <linearGradient
                         id="valueFill"
@@ -1032,6 +1103,18 @@ function App() {
                 />
               </label>
             </div>
+            <label>
+              Divisa
+              <select
+                value={form.currency}
+                onChange={(event) =>
+                  setForm({ ...form, currency: event.target.value as Currency })
+                }
+              >
+                <option>USD</option>
+                <option>EUR</option>
+              </select>
+            </label>
             <button className="primary-button modal-submit" type="submit">
               {editingId ? "Guardar cambios" : "Añadir inversión"}
             </button>
@@ -1153,6 +1236,21 @@ function App() {
                 />
               </label>
             </div>
+            <label>
+              Divisa
+              <select
+                value={transactionForm.currency}
+                onChange={(event) =>
+                  setTransactionForm({
+                    ...transactionForm,
+                    currency: event.target.value as Currency,
+                  })
+                }
+              >
+                <option>USD</option>
+                <option>EUR</option>
+              </select>
+            </label>
             <button className="primary-button modal-submit" type="submit">
               {editingTransactionId ? "Guardar cambios" : "Guardar operación"}
             </button>

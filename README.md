@@ -29,4 +29,12 @@ El dashboard permite exportar un backup JSON completo, restaurarlo después de v
 
 Las carteras nuevas empiezan vacías. El botón **Borrar datos** elimina la bóveda local después de una confirmación y no se puede deshacer; exporta un backup antes de usarlo.
 
+## Finanzas y fuentes de datos
+
+- La divisa base puede ser EUR o USD y el tipo USD/EUR se introduce manualmente para evitar depender de una API con secretos.
+- El resumen separa rentabilidad no realizada, rentabilidad realizada, dividendos y comisiones.
+- El gráfico de evolución se construye a partir del historial de operaciones; las valoraciones automáticas de mercado todavía no están conectadas.
+- Se pueden importar operaciones CSV con columnas de fecha, símbolo, tipo, cantidad e importe. El importador acepta compras y ventas de exportaciones habituales de MetaTrader, valida las filas y recalcula la cartera.
+- Las cotizaciones actuales siguen siendo manuales mediante la edición de cada posición; no se presenta información de mercado en tiempo real.
+
 GitHub Pages no ofrece autenticación de URL. El código publicado será accesible, por lo que no deben subirse inversiones, contraseñas, tokens ni claves de brokers.
