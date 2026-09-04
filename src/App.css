@@ -100,6 +100,21 @@
   justify-content: space-between;
   margin-bottom: 32px;
 }
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.secondary-button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--paper);
+  padding: 11px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.secondary-button:hover { border-color: var(--coral); color: var(--coral); }
 .eyebrow {
   color: var(--coral);
   letter-spacing: 1.6px;
@@ -270,6 +285,12 @@
 .positions-panel {
   padding-bottom: 7px;
 }
+.transactions-panel { margin-top: 14px; padding-bottom: 7px; }
+.transaction-type { font-size: 10px; font-weight: 700; }
+.transaction-type.compra { color: var(--green); }
+.transaction-type.venta { color: #bb5c57; }
+.transaction-type.dividendo { color: #b17c2b; }
+.transaction-type.comisión { color: var(--muted); }
 .text-button {
   background: none;
   border: 0;
@@ -528,6 +549,8 @@ th:first-child {
   .topbar h1 {
     font-size: 27px;
   }
+  .topbar-actions { width: 100%; }
+  .topbar-actions button { flex: 1; justify-content: center; }
   .summary-grid {
     grid-template-columns: 1fr;
   }

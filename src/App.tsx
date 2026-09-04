@@ -40,6 +40,23 @@ type Position = {
   color: string;
 };
 
+type TransactionType = "Compra" | "Venta" | "Dividendo" | "Comisión";
+
+type Transaction = {
+  id: number;
+  date: string;
+  symbol: string;
+  type: TransactionType;
+  quantity: number;
+  amount: number;
+  currency: "EUR" | "USD";
+};
+
+type VaultData = {
+  positions: Position[];
+  transactions: Transaction[];
+};
+
 const initialPositions: Position[] = [
   {
     id: 1,
@@ -99,8 +116,15 @@ const history = [
   { month: "Sep", value: 13850 },
 ];
 
+const initialTransactions: Transaction[] = [
+  { id: 1, date: "2026-08-28", symbol: "META", type: "Compra", quantity: 4, amount: 1980, currency: "USD" },
+  { id: 2, date: "2026-08-18", symbol: "GLD", type: "Compra", quantity: 3, amount: 711, currency: "USD" },
+  { id: 3, date: "2026-07-30", symbol: "MSFT", type: "Dividendo", quantity: 0, amount: 18.5, currency: "USD" },
+];
+
 function App() {
   const [positions, setPositions] = useState(initialPositions);
+  const [transactions, setTransactions] = useState(initialTransactions);
   const [vaultPassword, setVaultPassword] = useState("");
   const [vaultStatus, setVaultStatus] = useState<
     "checking" | "setup" | "locked" | "unlocked"
@@ -117,6 +141,14 @@ function App() {
     invested: "",
     price: "",
   });
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionForm, setTransactionForm] = useState({
+    date: new Date().toISOString().slice(0, 10),
+    symbol: "",
+    type: "Compra" as TransactionType,
+    quantity: "",
+    amount: "",
+  });
   useEffect(() => {
     hasVault()
       .then((exists) => setVaultStatus(exists ? "locked" : "setup"))
@@ -130,7 +162,7 @@ function App() {
       return;
     }
     try {
-      await createVault(initialPositions, passwordInput);
+      await createVault({ positions: initialPositions, transactions: initialTransactions }, passwordInput);
       setVaultPassword(passwordInput);
       setPasswordInput("");
       setVaultError("");
@@ -143,8 +175,12 @@ function App() {
   const unlock = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
-      const storedPositions = await unlockVault<Position[]>(passwordInput);
-      setPositions(storedPositions);
+      const storedData = await unlockVault<Position[] | VaultData>(passwordInput);
+      const data = Array.isArray(storedData)
+        ? { positions: storedData, transactions: [] }
+        : storedData;
+      setPositions(data.positions);
+      setTransactions(data.transactions ?? []);
       setVaultPassword(passwordInput);
       setPasswordInput("");
       setVaultError("");
@@ -154,10 +190,11 @@ function App() {
     }
   };
 
-  const persistPositions = async (nextPositions: Position[]) => {
+  const persistData = async (nextPositions: Position[], nextTransactions = transactions) => {
     setPositions(nextPositions);
+    setTransactions(nextTransactions);
     try {
-      await saveVault(nextPositions, vaultPassword);
+      await saveVault({ positions: nextPositions, transactions: nextTransactions }, vaultPassword);
     } catch {
       setVaultError("El cambio se aplicó, pero no se pudo guardar localmente.");
     }
@@ -206,6 +243,21 @@ function App() {
     });
     setIsModalOpen(true);
   };
+  const saveTransaction = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const nextTransaction: Transaction = {
+      id: Date.now(),
+      date: transactionForm.date,
+      symbol: transactionForm.symbol.toUpperCase(),
+      type: transactionForm.type,
+      quantity: Number(transactionForm.quantity) || 0,
+      amount: Number(transactionForm.amount),
+      currency: "USD",
+    };
+    if (!nextTransaction.symbol || !nextTransaction.amount) return;
+    void persistData(positions, [nextTransaction, ...transactions]);
+    setIsTransactionModalOpen(false);
+  };
   const savePosition = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const next = {
@@ -230,7 +282,7 @@ function App() {
             color: "#876cbb",
           },
         ];
-    void persistPositions(nextPositions);
+    void persistData(nextPositions);
     setIsModalOpen(false);
   };
 
@@ -326,9 +378,14 @@ function App() {
             <p className="eyebrow">PATRIMONIO PERSONAL</p>
             <h1>Buenos días, Kaseb</h1>
           </div>
-          <button className="primary-button" onClick={openNew}>
-            <Plus size={17} /> Añadir inversión
-          </button>
+          <div className="topbar-actions">
+            <button className="secondary-button" onClick={() => setIsTransactionModalOpen(true)}>
+              Registrar operación
+            </button>
+            <button className="primary-button" onClick={openNew}>
+              <Plus size={17} /> Añadir inversión
+            </button>
+          </div>
         </header>
         <section className="summary-grid" aria-label="Resumen de cartera">
           <article className="metric-card featured">
@@ -556,7 +613,7 @@ function App() {
                           <button
                             className="icon-button danger"
                             onClick={() =>
-                              void persistPositions(
+                              void persistData(
                                 positions.filter(
                                   (item) => item.id !== position.id,
                                 ),
@@ -573,6 +630,23 @@ function App() {
                   );
                 })}
               </tbody>
+            </table>
+          </div>
+        </section>
+        <section className="panel transactions-panel" id="transactions">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">MOVIMIENTOS</p>
+              <h2>Operaciones recientes</h2>
+            </div>
+            <button className="text-button" onClick={() => setIsTransactionModalOpen(true)}>
+              Añadir operación <span>+</span>
+            </button>
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead><tr><th>Fecha</th><th>Activo</th><th>Tipo</th><th>Cantidad</th><th>Importe</th></tr></thead>
+              <tbody>{transactions.slice(0, 5).map((transaction) => <tr key={transaction.id}><td>{new Date(`${transaction.date}T12:00:00`).toLocaleDateString("es-ES")}</td><td><strong>{transaction.symbol}</strong></td><td><span className={`transaction-type ${transaction.type.toLowerCase()}`}>{transaction.type}</span></td><td>{transaction.quantity || "-"}</td><td><strong>{transaction.amount.toLocaleString("es-ES", { maximumFractionDigits: 2 })} $</strong></td></tr>)}</tbody>
             </table>
           </div>
         </section>
@@ -690,6 +764,17 @@ function App() {
             <button className="primary-button modal-submit" type="submit">
               {editingId ? "Guardar cambios" : "Añadir inversión"}
             </button>
+          </form>
+        </div>
+      )}
+      {isTransactionModalOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsTransactionModalOpen(false); }}>
+          <form className="modal" onSubmit={saveTransaction}>
+            <div className="modal-header"><div><p className="eyebrow">NUEVO MOVIMIENTO</p><h2>Registrar operación</h2></div><button type="button" className="icon-button" onClick={() => setIsTransactionModalOpen(false)} aria-label="Cerrar"><X size={18} /></button></div>
+            <div className="form-row"><label>Fecha<input required type="date" value={transactionForm.date} onChange={(event) => setTransactionForm({ ...transactionForm, date: event.target.value })} /></label><label>Tipo<select value={transactionForm.type} onChange={(event) => setTransactionForm({ ...transactionForm, type: event.target.value as TransactionType })}><option>Compra</option><option>Venta</option><option>Dividendo</option><option>Comisión</option></select></label></div>
+            <label>Símbolo<input required value={transactionForm.symbol} onChange={(event) => setTransactionForm({ ...transactionForm, symbol: event.target.value })} placeholder="Ej. META" /></label>
+            <div className="form-row"><label>Cantidad<input min="0" step="any" type="number" value={transactionForm.quantity} onChange={(event) => setTransactionForm({ ...transactionForm, quantity: event.target.value })} /></label><label>Importe<input required min="0.01" step="any" type="number" value={transactionForm.amount} onChange={(event) => setTransactionForm({ ...transactionForm, amount: event.target.value })} /></label></div>
+            <button className="primary-button modal-submit" type="submit">Guardar operación</button>
           </form>
         </div>
       )}
