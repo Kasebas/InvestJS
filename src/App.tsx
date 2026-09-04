@@ -162,6 +162,9 @@ function App() {
   const [vaultError, setVaultError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [positionSearch, setPositionSearch] = useState("");
+  const [positionCategory, setPositionCategory] = useState("Todas");
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState("Todas");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({
@@ -277,6 +280,27 @@ function App() {
         color: position.color,
       })),
     [positions],
+  );
+  const filteredPositions = useMemo(() => {
+    const search = positionSearch.trim().toLowerCase();
+    return positions.filter((position) => {
+      const matchesSearch =
+        !search ||
+        position.symbol.toLowerCase().includes(search) ||
+        position.name.toLowerCase().includes(search);
+      const matchesCategory =
+        positionCategory === "Todas" || position.category === positionCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [positionCategory, positionSearch, positions]);
+  const filteredTransactions = useMemo(
+    () =>
+      transactions.filter(
+        (transaction) =>
+          transactionTypeFilter === "Todas" ||
+          transaction.type === transactionTypeFilter,
+      ),
+    [transactionTypeFilter, transactions],
   );
 
   const openNew = () => {
@@ -627,6 +651,30 @@ function App() {
               Ver todas <span>→</span>
             </button>
           </div>
+          <div className="filter-bar" aria-label="Filtros de posiciones">
+            <label className="filter-search">
+              <span className="sr-only">Buscar inversión</span>
+              <input
+                type="search"
+                value={positionSearch}
+                onChange={(event) => setPositionSearch(event.target.value)}
+                placeholder="Buscar símbolo o nombre"
+              />
+            </label>
+            <label className="filter-select">
+              <span className="sr-only">Filtrar por categoría</span>
+              <select
+                value={positionCategory}
+                onChange={(event) => setPositionCategory(event.target.value)}
+              >
+                <option>Todas</option>
+                <option>Acciones</option>
+                <option>Oro</option>
+                <option>ETF</option>
+                <option>Otro</option>
+              </select>
+            </label>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
@@ -643,7 +691,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {positions.map((position) => {
+                {filteredPositions.map((position) => {
                   const value = position.quantity * position.price;
                   const result = value - position.invested;
                   return (
@@ -724,6 +772,9 @@ function App() {
               </tbody>
             </table>
           </div>
+          {filteredPositions.length === 0 && (
+            <p className="filter-empty">No hay inversiones que coincidan con estos filtros.</p>
+          )}
         </section>
         <section className="panel transactions-panel" id="transactions">
           <div className="panel-heading">
@@ -738,6 +789,21 @@ function App() {
               Añadir operación <span>+</span>
             </button>
           </div>
+          <div className="filter-bar" aria-label="Filtros de operaciones">
+            <label className="filter-select">
+              <span className="sr-only">Filtrar por tipo de operación</span>
+              <select
+                value={transactionTypeFilter}
+                onChange={(event) => setTransactionTypeFilter(event.target.value)}
+              >
+                <option>Todas</option>
+                <option>Compra</option>
+                <option>Venta</option>
+                <option>Dividendo</option>
+                <option>Comisión</option>
+              </select>
+            </label>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
@@ -750,7 +816,7 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.slice(0, 5).map((transaction) => (
+                {filteredTransactions.slice(0, 5).map((transaction) => (
                   <tr key={transaction.id}>
                     <td>
                       {new Date(
@@ -781,6 +847,9 @@ function App() {
               </tbody>
             </table>
           </div>
+          {filteredTransactions.length === 0 && (
+            <p className="filter-empty">No hay operaciones que coincidan con este filtro.</p>
+          )}
         </section>
         <p className="privacy-note">
           Tus datos se guardan localmente en este navegador · Última

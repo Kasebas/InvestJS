@@ -290,6 +290,40 @@
 .positions-panel {
   padding-bottom: 7px;
 }
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 18px;
+}
+.filter-search {
+  flex: 1;
+  margin: 0;
+}
+.filter-search input,
+.filter-select select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: #fffefa;
+  padding: 9px 10px;
+  outline-color: var(--coral);
+  font-size: 11px;
+}
+.filter-search input::placeholder {
+  color: #aaa19a;
+}
+.filter-select {
+  min-width: 132px;
+  margin: 0;
+}
+.filter-empty {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 16px 0 8px;
+  text-align: center;
+}
 .transactions-panel {
   margin-top: 14px;
   padding-bottom: 7px;
