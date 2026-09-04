@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -28,6 +28,11 @@ import {
   unlockVault,
 } from "./lib/secureStorage";
 import { applyTransaction } from "./lib/portfolio";
+import {
+  downloadJsonBackup,
+  downloadTransactionsCsv,
+  parseBackup,
+} from "./lib/backup";
 
 type Position = {
   id: number;
@@ -156,6 +161,7 @@ function App() {
   >("checking");
   const [vaultError, setVaultError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({
@@ -233,6 +239,22 @@ function App() {
       );
     } catch {
       setVaultError("El cambio se aplicó, pero no se pudo guardar localmente.");
+    }
+  };
+  const exportBackup = () => downloadJsonBackup({ positions, transactions });
+  const exportTransactions = () => downloadTransactionsCsv(transactions);
+  const importBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    try {
+      const backup = parseBackup(await file.text());
+      await persistData(backup.positions, backup.transactions);
+      setVaultError("");
+    } catch (error) {
+      setVaultError(
+        error instanceof Error ? error.message : "No se pudo importar la copia.",
+      );
     }
   };
   const totalInvested = positions.reduce(
@@ -425,6 +447,25 @@ function App() {
             <h1>Buenos días, Kaseb</h1>
           </div>
           <div className="topbar-actions">
+            <input
+              ref={importInputRef}
+              className="sr-only"
+              type="file"
+              accept="application/json,.json"
+              onChange={importBackup}
+            />
+            <button
+              className="secondary-button"
+              onClick={() => importInputRef.current?.click()}
+            >
+              Importar copia
+            </button>
+            <button className="secondary-button" onClick={exportBackup}>
+              Exportar JSON
+            </button>
+            <button className="secondary-button" onClick={exportTransactions}>
+              Exportar CSV
+            </button>
             <button
               className="secondary-button"
               onClick={() => setIsTransactionModalOpen(true)}
