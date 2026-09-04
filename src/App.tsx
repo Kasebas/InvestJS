@@ -1,0 +1,577 @@
+import { useMemo, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  ArrowUpRight,
+  BriefcaseBusiness,
+  ChartNoAxesCombined,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import "./App.css";
+
+type Position = {
+  id: number;
+  symbol: string;
+  name: string;
+  category: string;
+  quantity: number;
+  price: number;
+  invested: number;
+  currency: "EUR" | "USD";
+  color: string;
+};
+
+const initialPositions: Position[] = [
+  {
+    id: 1,
+    symbol: "META",
+    name: "Meta Platforms",
+    category: "Acciones",
+    quantity: 12,
+    price: 495.2,
+    invested: 5240,
+    currency: "USD",
+    color: "#d8704f",
+  },
+  {
+    id: 2,
+    symbol: "NVDA",
+    name: "NVIDIA Corporation",
+    category: "Acciones",
+    quantity: 18,
+    price: 128.4,
+    invested: 1875,
+    currency: "USD",
+    color: "#2d8a70",
+  },
+  {
+    id: 3,
+    symbol: "GLD",
+    name: "SPDR Gold Shares",
+    category: "Oro",
+    quantity: 8,
+    price: 242.8,
+    invested: 1680,
+    currency: "USD",
+    color: "#d4a247",
+  },
+  {
+    id: 4,
+    symbol: "MSFT",
+    name: "Microsoft Corporation",
+    category: "Acciones",
+    quantity: 5,
+    price: 417.9,
+    invested: 1760,
+    currency: "USD",
+    color: "#456f9c",
+  },
+];
+
+const history = [
+  { month: "Ene", value: 8200 },
+  { month: "Feb", value: 8910 },
+  { month: "Mar", value: 8650 },
+  { month: "Abr", value: 10120 },
+  { month: "May", value: 10980 },
+  { month: "Jun", value: 11940 },
+  { month: "Jul", value: 11680 },
+  { month: "Ago", value: 12540 },
+  { month: "Sep", value: 13850 },
+];
+
+function App() {
+  const [positions, setPositions] = useState(initialPositions);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [form, setForm] = useState({
+    symbol: "",
+    name: "",
+    category: "Acciones",
+    quantity: "",
+    invested: "",
+    price: "",
+  });
+  const totalInvested = positions.reduce(
+    (total, position) => total + position.invested,
+    0,
+  );
+  const totalValue = positions.reduce(
+    (total, position) => total + position.quantity * position.price,
+    0,
+  );
+  const gain = totalValue - totalInvested;
+  const gainPercent = totalInvested ? (gain / totalInvested) * 100 : 0;
+  const allocation = useMemo(
+    () =>
+      positions.map((position) => ({
+        name: position.symbol,
+        value: position.quantity * position.price,
+        color: position.color,
+      })),
+    [positions],
+  );
+
+  const openNew = () => {
+    setEditingId(null);
+    setForm({
+      symbol: "",
+      name: "",
+      category: "Acciones",
+      quantity: "",
+      invested: "",
+      price: "",
+    });
+    setIsModalOpen(true);
+  };
+  const openEdit = (position: Position) => {
+    setEditingId(position.id);
+    setForm({
+      symbol: position.symbol,
+      name: position.name,
+      category: position.category,
+      quantity: String(position.quantity),
+      invested: String(position.invested),
+      price: String(position.price),
+    });
+    setIsModalOpen(true);
+  };
+  const savePosition = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const next = {
+      symbol: form.symbol.toUpperCase(),
+      name: form.name,
+      category: form.category,
+      quantity: Number(form.quantity),
+      invested: Number(form.invested),
+      price: Number(form.price),
+    };
+    if (!next.symbol || !next.name || !next.quantity || !next.price) return;
+    if (editingId)
+      setPositions((current) =>
+        current.map((position) =>
+          position.id === editingId ? { ...position, ...next } : position,
+        ),
+      );
+    else
+      setPositions((current) => [
+        ...current,
+        { ...next, id: Date.now(), currency: "USD", color: "#876cbb" },
+      ]);
+    setIsModalOpen(false);
+  };
+
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span className="brand-mark">
+            <ChartNoAxesCombined size={19} />
+          </span>
+          <span>
+            Invest<span className="brand-accent">JS</span>
+          </span>
+        </div>
+        <nav aria-label="Navegación principal">
+          <a className="nav-item active" href="#dashboard">
+            <ChartNoAxesCombined size={18} /> Resumen
+          </a>
+          <a className="nav-item" href="#positions">
+            <BriefcaseBusiness size={18} /> Mis inversiones
+          </a>
+        </nav>
+        <div className="sidebar-bottom">
+          <span className="status-dot" /> Datos locales seguros
+        </div>
+      </aside>
+      <main className="main-content" id="dashboard">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">PATRIMONIO PERSONAL</p>
+            <h1>Buenos días, Kaseb</h1>
+          </div>
+          <button className="primary-button" onClick={openNew}>
+            <Plus size={17} /> Añadir inversión
+          </button>
+        </header>
+        <section className="summary-grid" aria-label="Resumen de cartera">
+          <article className="metric-card featured">
+            <span className="metric-label">Valor total</span>
+            <strong>
+              {totalValue.toLocaleString("es-ES", {
+                style: "currency",
+                currency: "USD",
+                maximumFractionDigits: 0,
+              })}
+            </strong>
+            <span className="metric-change positive">
+              <ArrowUpRight size={15} /> +12,8% este año
+            </span>
+          </article>
+          <article className="metric-card">
+            <span className="metric-label">Capital invertido</span>
+            <strong>
+              {totalInvested.toLocaleString("es-ES", {
+                style: "currency",
+                currency: "USD",
+                maximumFractionDigits: 0,
+              })}
+            </strong>
+            <span className="metric-note">
+              {positions.length} posiciones activas
+            </span>
+          </article>
+          <article className="metric-card">
+            <span className="metric-label">Rentabilidad</span>
+            <strong className="positive-text">
+              +{gain.toLocaleString("es-ES", { maximumFractionDigits: 0 })} $
+            </strong>
+            <span className="metric-change positive">
+              <ArrowUpRight size={15} /> +{gainPercent.toFixed(1)}% total
+            </span>
+          </article>
+        </section>
+        <section className="charts-grid">
+          <article className="panel performance-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">EVOLUCIÓN</p>
+                <h2>Valor de cartera</h2>
+              </div>
+              <select aria-label="Periodo del gráfico">
+                <option>Últimos 9 meses</option>
+              </select>
+            </div>
+            <div className="chart-wrap">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="valueFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#d8704f" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#d8704f" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#e9e3da" vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#8b847d", fontSize: 11 }}
+                  />
+                  <YAxis hide domain={["dataMin - 1000", "dataMax + 500"]} />
+                  <Tooltip
+                    formatter={(value) => [
+                      `${Number(value).toLocaleString("es-ES")} $`,
+                      "Valor",
+                    ]}
+                    contentStyle={{
+                      border: "1px solid #e9e3da",
+                      borderRadius: 8,
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#d8704f"
+                    strokeWidth={3}
+                    fill="url(#valueFill)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </article>
+          <article className="panel allocation-panel">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">COMPOSICIÓN</p>
+                <h2>Distribución</h2>
+              </div>
+            </div>
+            <div className="donut-wrap">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={allocation}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius="63%"
+                    outerRadius="88%"
+                    paddingAngle={3}
+                    stroke="none"
+                  >
+                    {allocation.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => [
+                      `${Number(value).toLocaleString("es-ES")} $`,
+                      "Valor",
+                    ]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="donut-total">
+                <strong>
+                  {totalValue.toLocaleString("es-ES", {
+                    maximumFractionDigits: 0,
+                  })}{" "}
+                  $
+                </strong>
+                <span>Total</span>
+              </div>
+            </div>
+            <div className="legend">
+              {allocation.map((item) => (
+                <span key={item.name}>
+                  <i style={{ background: item.color }} />
+                  {item.name}
+                  <b>{((item.value / totalValue) * 100).toFixed(0)}%</b>
+                </span>
+              ))}
+            </div>
+          </article>
+        </section>
+        <section className="panel positions-panel" id="positions">
+          <div className="panel-heading">
+            <div>
+              <p className="eyebrow">SEGUIMIENTO</p>
+              <h2>Mis inversiones</h2>
+            </div>
+            <button className="text-button" onClick={openNew}>
+              Ver todas <span>→</span>
+            </button>
+          </div>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Activo</th>
+                  <th>Tipo</th>
+                  <th>Cantidad</th>
+                  <th>Precio actual</th>
+                  <th>Valor</th>
+                  <th>Rentabilidad</th>
+                  <th>
+                    <span className="sr-only">Acciones</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map((position) => {
+                  const value = position.quantity * position.price;
+                  const result = value - position.invested;
+                  return (
+                    <tr key={position.id}>
+                      <td>
+                        <div className="asset-cell">
+                          <span
+                            className="asset-icon"
+                            style={{ background: position.color }}
+                          >
+                            {position.symbol.slice(0, 1)}
+                          </span>
+                          <div>
+                            <strong>{position.symbol}</strong>
+                            <small>{position.name}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="type-label">{position.category}</span>
+                      </td>
+                      <td>{position.quantity}</td>
+                      <td>
+                        {position.price.toLocaleString("es-ES", {
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        $
+                      </td>
+                      <td>
+                        <strong>
+                          {value.toLocaleString("es-ES", {
+                            maximumFractionDigits: 0,
+                          })}{" "}
+                          $
+                        </strong>
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            result >= 0
+                              ? "return positive-text"
+                              : "return negative-text"
+                          }
+                        >
+                          {result >= 0 ? "+" : ""}
+                          {((result / position.invested) * 100).toFixed(1)}%
+                        </span>
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="icon-button"
+                            onClick={() => openEdit(position)}
+                            aria-label={`Editar ${position.symbol}`}
+                            title="Editar"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            className="icon-button danger"
+                            onClick={() =>
+                              setPositions((current) =>
+                                current.filter(
+                                  (item) => item.id !== position.id,
+                                ),
+                              )
+                            }
+                            aria-label={`Eliminar ${position.symbol}`}
+                            title="Eliminar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <p className="privacy-note">
+          Tus datos se guardan localmente en este navegador · Última
+          actualización: hoy, 09:42
+        </p>
+      </main>
+      {isModalOpen && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsModalOpen(false);
+          }}
+        >
+          <form className="modal" onSubmit={savePosition}>
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">
+                  {editingId ? "EDITAR POSICIÓN" : "NUEVA POSICIÓN"}
+                </p>
+                <h2>
+                  {editingId ? "Actualizar inversión" : "Añadir inversión"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Cerrar"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <label>
+              Símbolo
+              <input
+                required
+                value={form.symbol}
+                onChange={(event) =>
+                  setForm({ ...form, symbol: event.target.value })
+                }
+                placeholder="Ej. AAPL"
+              />
+            </label>
+            <label>
+              Nombre
+              <input
+                required
+                value={form.name}
+                onChange={(event) =>
+                  setForm({ ...form, name: event.target.value })
+                }
+                placeholder="Nombre del activo"
+              />
+            </label>
+            <div className="form-row">
+              <label>
+                Tipo
+                <select
+                  value={form.category}
+                  onChange={(event) =>
+                    setForm({ ...form, category: event.target.value })
+                  }
+                >
+                  <option>Acciones</option>
+                  <option>Oro</option>
+                  <option>ETF</option>
+                  <option>Otro</option>
+                </select>
+              </label>
+              <label>
+                Cantidad
+                <input
+                  required
+                  min="0.0001"
+                  step="any"
+                  type="number"
+                  value={form.quantity}
+                  onChange={(event) =>
+                    setForm({ ...form, quantity: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                Precio actual
+                <input
+                  required
+                  min="0"
+                  step="any"
+                  type="number"
+                  value={form.price}
+                  onChange={(event) =>
+                    setForm({ ...form, price: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                Capital invertido
+                <input
+                  required
+                  min="0"
+                  step="any"
+                  type="number"
+                  value={form.invested}
+                  onChange={(event) =>
+                    setForm({ ...form, invested: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+            <button className="primary-button modal-submit" type="submit">
+              {editingId ? "Guardar cambios" : "Añadir inversión"}
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
