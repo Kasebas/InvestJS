@@ -253,7 +253,9 @@ function App() {
       setVaultError("");
     } catch (error) {
       setVaultError(
-        error instanceof Error ? error.message : "No se pudo importar la copia.",
+        error instanceof Error
+          ? error.message
+          : "No se pudo importar la copia.",
       );
     }
   };
