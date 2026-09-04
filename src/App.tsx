@@ -28,7 +28,7 @@ import {
   saveVault,
   unlockVault,
 } from "./lib/secureStorage";
-import { applyTransaction } from "./lib/portfolio";
+import { recalculatePortfolio } from "./lib/portfolio";
 import {
   downloadJsonBackup,
   downloadTransactionsCsv,
@@ -45,6 +45,7 @@ type Position = {
   invested: number;
   currency: "EUR" | "USD";
   color: string;
+  isTransactionBased?: boolean;
 };
 
 type TransactionType = "Compra" | "Venta" | "Dividendo" | "Comisión";
@@ -94,6 +95,9 @@ function App() {
     price: "",
   });
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [editingTransactionId, setEditingTransactionId] = useState<
+    number | null
+  >(null);
   const [transactionForm, setTransactionForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     symbol: "",
@@ -261,7 +265,7 @@ function App() {
   const saveTransaction = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const nextTransaction: Transaction = {
-      id: Date.now(),
+      id: editingTransactionId ?? Date.now(),
       date: transactionForm.date,
       symbol: transactionForm.symbol.toUpperCase(),
       type: transactionForm.type,
@@ -270,12 +274,19 @@ function App() {
       currency: "USD",
     };
     if (!nextTransaction.symbol || !nextTransaction.amount) return;
-    const result = applyTransaction(positions, nextTransaction);
+    const nextTransactions = editingTransactionId
+      ? transactions.map((transaction) =>
+          transaction.id === editingTransactionId
+            ? nextTransaction
+            : transaction,
+        )
+      : [nextTransaction, ...transactions];
+    const result = recalculatePortfolio(positions, nextTransactions);
     if ("error" in result) {
       setVaultError(result.error);
       return;
     }
-    const updatedPositions = result.positions.map((calculatedPosition) => {
+    const updatedPositions = result.map((calculatedPosition) => {
       const existingPosition = positions.find(
         (position) => position.symbol === calculatedPosition.symbol,
       );
@@ -288,11 +299,74 @@ function App() {
             category: "Acciones",
             currency: "USD" as const,
             color: "#876cbb",
+            isTransactionBased: true,
           };
     });
-    void persistData(updatedPositions, [nextTransaction, ...transactions]);
+    void persistData(updatedPositions, nextTransactions);
     setVaultError("");
     setIsTransactionModalOpen(false);
+    setEditingTransactionId(null);
+  };
+  const openNewTransaction = () => {
+    setEditingTransactionId(null);
+    setTransactionForm({
+      date: new Date().toISOString().slice(0, 10),
+      symbol: "",
+      type: "Compra",
+      quantity: "",
+      amount: "",
+    });
+    setIsTransactionModalOpen(true);
+  };
+  const openEditTransaction = (transaction: Transaction) => {
+    setEditingTransactionId(transaction.id);
+    setTransactionForm({
+      date: transaction.date,
+      symbol: transaction.symbol,
+      type: transaction.type,
+      quantity: String(transaction.quantity),
+      amount: String(transaction.amount),
+    });
+    setIsTransactionModalOpen(true);
+  };
+  const deleteTransaction = (transactionId: number) => {
+    if (!window.confirm("¿Eliminar esta operación y recalcular la cartera?"))
+      return;
+    const nextTransactions = transactions.filter(
+      (transaction) => transaction.id !== transactionId,
+    );
+    const result = recalculatePortfolio(positions, nextTransactions);
+    if ("error" in result) {
+      setVaultError(result.error);
+      return;
+    }
+    const activeSymbols = new Set(
+      nextTransactions.map((transaction) => transaction.symbol),
+    );
+    const nextPositions = result
+      .filter(
+        (calculatedPosition) =>
+          activeSymbols.has(calculatedPosition.symbol) ||
+          !positions.find(
+            (position) => position.symbol === calculatedPosition.symbol,
+          )?.isTransactionBased,
+      )
+      .map((calculatedPosition) => {
+        const existingPosition = positions.find(
+          (position) => position.symbol === calculatedPosition.symbol,
+        );
+        return existingPosition
+          ? { ...existingPosition, ...calculatedPosition }
+          : {
+              ...calculatedPosition,
+              id: Date.now(),
+              name: calculatedPosition.symbol,
+              category: "Acciones",
+              currency: "USD" as const,
+              color: "#876cbb",
+            };
+      });
+    void persistData(nextPositions, nextTransactions);
   };
   const savePosition = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -754,10 +828,7 @@ function App() {
               <p className="eyebrow">MOVIMIENTOS</p>
               <h2>Operaciones recientes</h2>
             </div>
-            <button
-              className="text-button"
-              onClick={() => setIsTransactionModalOpen(true)}
-            >
+            <button className="text-button" onClick={openNewTransaction}>
               Añadir operación <span>+</span>
             </button>
           </div>
@@ -787,6 +858,9 @@ function App() {
                   <th>Tipo</th>
                   <th>Cantidad</th>
                   <th>Importe</th>
+                  <th>
+                    <span className="sr-only">Acciones</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -815,6 +889,26 @@ function App() {
                         })}{" "}
                         $
                       </strong>
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        <button
+                          className="icon-button"
+                          onClick={() => openEditTransaction(transaction)}
+                          aria-label={`Editar operación de ${transaction.symbol}`}
+                          title="Editar operación"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          className="icon-button danger"
+                          onClick={() => deleteTransaction(transaction.id)}
+                          aria-label={`Eliminar operación de ${transaction.symbol}`}
+                          title="Eliminar operación"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -956,13 +1050,24 @@ function App() {
           <form className="modal" onSubmit={saveTransaction}>
             <div className="modal-header">
               <div>
-                <p className="eyebrow">NUEVO MOVIMIENTO</p>
-                <h2>Registrar operación</h2>
+                <p className="eyebrow">
+                  {editingTransactionId
+                    ? "EDITAR MOVIMIENTO"
+                    : "NUEVO MOVIMIENTO"}
+                </p>
+                <h2>
+                  {editingTransactionId
+                    ? "Editar operación"
+                    : "Registrar operación"}
+                </h2>
               </div>
               <button
                 type="button"
                 className="icon-button"
-                onClick={() => setIsTransactionModalOpen(false)}
+                onClick={() => {
+                  setIsTransactionModalOpen(false);
+                  setEditingTransactionId(null);
+                }}
                 aria-label="Cerrar"
               >
                 <X size={18} />
@@ -1049,7 +1154,7 @@ function App() {
               </label>
             </div>
             <button className="primary-button modal-submit" type="submit">
-              Guardar operación
+              {editingTransactionId ? "Guardar cambios" : "Guardar operación"}
             </button>
           </form>
         </div>

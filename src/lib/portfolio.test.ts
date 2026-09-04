@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyTransaction } from "./portfolio";
+import { applyTransaction, recalculatePortfolio } from "./portfolio";
 
 const position = { symbol: "META", quantity: 10, price: 100, invested: 1_000 };
 
@@ -70,5 +70,39 @@ describe("applyTransaction", () => {
         expect(result).toEqual({
             error: "No puedes vender más de 10 unidades de META.",
         });
+    });
+});
+
+describe("recalculatePortfolio", () => {
+    it("replays transactions in date order", () => {
+        const result = recalculatePortfolio([], [
+            { id: 2, date: "2026-02-01", type: "Compra", symbol: "META", quantity: 2, amount: 220 },
+            { id: 1, date: "2026-01-01", type: "Compra", symbol: "META", quantity: 3, amount: 270 },
+            { id: 3, date: "2026-03-01", type: "Venta", symbol: "META", quantity: 1, amount: 120 },
+        ]);
+
+        expect("error" in result ? result : result[0]).toMatchObject({ quantity: 4, invested: 392 });
+    });
+
+    it("removes a deleted transaction from the result", () => {
+        const result = recalculatePortfolio([], [
+            { id: 1, date: "2026-01-01", type: "Compra", symbol: "META", quantity: 3, amount: 300 },
+        ]);
+
+        expect("error" in result ? result : result[0]).toMatchObject({ quantity: 3, invested: 300 });
+    });
+
+    it("does not restore a transaction-based position when its history is empty", () => {
+        const result = recalculatePortfolio([
+            { ...position, isTransactionBased: true },
+        ], []);
+
+        expect(result).toEqual([]);
+    });
+
+    it("keeps a manually managed position without transactions", () => {
+        const result = recalculatePortfolio([position], []);
+
+        expect(result).toEqual([position]);
     });
 });

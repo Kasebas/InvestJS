@@ -3,6 +3,7 @@ export type PortfolioPosition = {
     quantity: number;
     price: number;
     invested: number;
+    isTransactionBased?: boolean;
 };
 
 export type PortfolioTransaction = {
@@ -15,6 +16,31 @@ export type PortfolioTransaction = {
 export type PortfolioResult =
     | { positions: PortfolioPosition[] }
     | { error: string };
+
+export const recalculatePortfolio = <T extends PortfolioPosition>(
+    metadata: T[],
+    transactions: (PortfolioTransaction & { id: number; date: string })[],
+): T[] | { error: string } => {
+    const transactionSymbols = new Set(transactions.map((transaction) => transaction.symbol));
+    const basePositions = metadata.filter(
+        (position) => !position.isTransactionBased && !transactionSymbols.has(position.symbol),
+    );
+    let calculated: PortfolioPosition[] = basePositions.map((position) => ({ ...position }));
+
+    const orderedTransactions = [...transactions].sort(
+        (left, right) => left.date.localeCompare(right.date) || left.id - right.id,
+    );
+    for (const transaction of orderedTransactions) {
+        const result = applyTransaction(calculated, transaction);
+        if ("error" in result) return result;
+        calculated = result.positions;
+    }
+
+    return calculated.map((position) => {
+        const previous = metadata.find((item) => item.symbol === position.symbol);
+        return previous ? { ...previous, ...position } : ({ ...position, isTransactionBased: true } as T);
+    }) as T[];
+};
 
 export const applyTransaction = (
     positions: PortfolioPosition[],
