@@ -22,6 +22,6 @@ El repositorio debe llamarse `InvestJS`. El workflow de `.github/workflows/deplo
 
 ## Estado actual
 
-La primera versión incluye un dashboard responsive con métricas, evolución de cartera, distribución por activo y operaciones CRUD de posiciones. Actualmente los datos viven en el estado de la sesión del navegador; la persistencia cifrada mediante IndexedDB y Web Crypto se añadirá antes de usar datos reales.
+La primera versión incluye un dashboard responsive con métricas, evolución de cartera, distribución por activo y operaciones CRUD de posiciones. Las posiciones se guardan localmente en IndexedDB cifradas con AES-GCM; la contraseña se utiliza para derivar la clave mediante PBKDF2 y nunca se guarda.
 
 GitHub Pages no ofrece autenticación de URL. El código publicado será accesible, por lo que no deben subirse inversiones, contraseñas, tokens ni claves de brokers.

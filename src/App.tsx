@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import "./App.css";
+import { createVault, hasVault, saveVault, unlockVault } from "./lib/secureStorage";
 
 type Position = {
   id: number;
@@ -95,6 +96,10 @@ const history = [
 
 function App() {
   const [positions, setPositions] = useState(initialPositions);
+  const [vaultPassword, setVaultPassword] = useState("");
+  const [vaultStatus, setVaultStatus] = useState<"checking" | "setup" | "locked" | "unlocked">("checking");
+  const [vaultError, setVaultError] = useState("");
+  const [passwordInput, setPasswordInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState({
@@ -105,6 +110,51 @@ function App() {
     invested: "",
     price: "",
   });
+  useEffect(() => {
+    hasVault()
+      .then((exists) => setVaultStatus(exists ? "locked" : "setup"))
+      .catch(() => setVaultError("No se pudo abrir el almacenamiento local."));
+  }, []);
+
+  const setupVault = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (passwordInput.length < 8) {
+      setVaultError("Usa una contraseña de al menos 8 caracteres.");
+      return;
+    }
+    try {
+      await createVault(initialPositions, passwordInput);
+      setVaultPassword(passwordInput);
+      setPasswordInput("");
+      setVaultError("");
+      setVaultStatus("unlocked");
+    } catch {
+      setVaultError("No se pudo crear la bóveda local.");
+    }
+  };
+
+  const unlock = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    try {
+      const storedPositions = await unlockVault<Position[]>(passwordInput);
+      setPositions(storedPositions);
+      setVaultPassword(passwordInput);
+      setPasswordInput("");
+      setVaultError("");
+      setVaultStatus("unlocked");
+    } catch {
+      setVaultError("Contraseña incorrecta o bóveda dañada.");
+    }
+  };
+
+  const persistPositions = async (nextPositions: Position[]) => {
+    setPositions(nextPositions);
+    try {
+      await saveVault(nextPositions, vaultPassword);
+    } catch {
+      setVaultError("El cambio se aplicó, pero no se pudo guardar localmente.");
+    }
+  };
   const totalInvested = positions.reduce(
     (total, position) => total + position.invested,
     0,
@@ -160,19 +210,28 @@ function App() {
       price: Number(form.price),
     };
     if (!next.symbol || !next.name || !next.quantity || !next.price) return;
-    if (editingId)
-      setPositions((current) =>
-        current.map((position) =>
+    const nextPositions = editingId
+      ? positions.map((position) =>
           position.id === editingId ? { ...position, ...next } : position,
-        ),
-      );
-    else
-      setPositions((current) => [
-        ...current,
-        { ...next, id: Date.now(), currency: "USD", color: "#876cbb" },
-      ]);
+        )
+      : [...positions, { ...next, id: Date.now(), currency: "USD" as const, color: "#876cbb" }];
+    void persistPositions(nextPositions);
     setIsModalOpen(false);
   };
+
+  if (vaultStatus !== "unlocked")
+    return (
+      <main className="vault-screen">
+        <div className="vault-card">
+          <span className="brand-mark"><ChartNoAxesCombined size={22} /></span>
+          <p className="eyebrow">INVESTJS · DATOS LOCALES</p>
+          <h1>{vaultStatus === "checking" ? "Comprobando bóveda" : vaultStatus === "setup" ? "Protege tu cartera" : "Desbloquea tu cartera"}</h1>
+          {vaultStatus === "checking" ? <p className="vault-copy">Preparando el almacenamiento seguro de este navegador...</p> : <form onSubmit={vaultStatus === "setup" ? setupVault : unlock}><label>{vaultStatus === "setup" ? "Crea una contraseña local" : "Contraseña local"}<input autoFocus required minLength={8} type="password" value={passwordInput} onChange={(event) => setPasswordInput(event.target.value)} placeholder="Mínimo 8 caracteres" /></label><button className="primary-button modal-submit" type="submit">{vaultStatus === "setup" ? "Crear bóveda" : "Desbloquear"}</button></form>}
+          {vaultError && <p className="vault-error" role="alert">{vaultError}</p>}
+          <p className="vault-warning">La contraseña no se guarda ni se puede recuperar. Sin ella no podrás descifrar tus datos.</p>
+        </div>
+      </main>
+    );
 
   return (
     <div className="app-shell">
@@ -432,13 +491,9 @@ function App() {
                           </button>
                           <button
                             className="icon-button danger"
-                            onClick={() =>
-                              setPositions((current) =>
-                                current.filter(
-                                  (item) => item.id !== position.id,
-                                ),
-                              )
-                            }
+                            onClick={() => void persistPositions(
+                              positions.filter((item) => item.id !== position.id),
+                            )}
                             aria-label={`Eliminar ${position.symbol}`}
                             title="Eliminar"
                           >
