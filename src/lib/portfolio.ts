@@ -25,6 +25,19 @@ export const applyTransaction = (
     );
 
     if (index < 0) {
+        if (transaction.type === "Compra" && transaction.quantity > 0 && transaction.amount > 0) {
+            return {
+                positions: [
+                    ...positions,
+                    {
+                        symbol: transaction.symbol,
+                        quantity: transaction.quantity,
+                        price: transaction.amount / transaction.quantity,
+                        invested: transaction.amount,
+                    },
+                ],
+            };
+        }
         return { error: `No existe una posición para ${transaction.symbol}.` };
     }
 

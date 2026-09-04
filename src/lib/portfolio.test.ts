@@ -4,6 +4,22 @@ import { applyTransaction } from "./portfolio";
 const position = { symbol: "META", quantity: 10, price: 100, invested: 1_000 };
 
 describe("applyTransaction", () => {
+    it("creates a position from the first purchase", () => {
+        const result = applyTransaction([], {
+            type: "Compra",
+            symbol: "AAPL",
+            quantity: 2,
+            amount: 400,
+        });
+
+        expect("positions" in result && result.positions[0]).toEqual({
+            symbol: "AAPL",
+            quantity: 2,
+            price: 200,
+            invested: 400,
+        });
+    });
+
     it("adds a purchase to quantity and invested capital", () => {
         const result = applyTransaction([position], {
             type: "Compra",

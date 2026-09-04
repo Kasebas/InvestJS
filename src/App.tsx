@@ -163,7 +163,12 @@ function App() {
     }
   };
   const resetVault = async () => {
-    if (!window.confirm("Se borrarán todas las inversiones y operaciones locales. Esta acción no se puede deshacer.")) return;
+    if (
+      !window.confirm(
+        "Se borrarán todas las inversiones y operaciones locales. Esta acción no se puede deshacer.",
+      )
+    )
+      return;
     await deleteVault();
     setPositions([]);
     setTransactions([]);
@@ -270,10 +275,21 @@ function App() {
       setVaultError(result.error);
       return;
     }
-    const updatedPositions = positions.map((position, index) => ({
-      ...position,
-      ...result.positions[index],
-    }));
+    const updatedPositions = result.positions.map((calculatedPosition) => {
+      const existingPosition = positions.find(
+        (position) => position.symbol === calculatedPosition.symbol,
+      );
+      return existingPosition
+        ? { ...existingPosition, ...calculatedPosition }
+        : {
+            ...calculatedPosition,
+            id: Date.now(),
+            name: calculatedPosition.symbol,
+            category: "Acciones",
+            currency: "USD" as const,
+            color: "#876cbb",
+          };
+    });
     void persistData(updatedPositions, [nextTransaction, ...transactions]);
     setVaultError("");
     setIsTransactionModalOpen(false);
@@ -390,7 +406,11 @@ function App() {
           >
             Bloquear
           </button>
-          <button className="lock-button" type="button" onClick={() => void resetVault()}>
+          <button
+            className="lock-button"
+            type="button"
+            onClick={() => void resetVault()}
+          >
             Borrar datos
           </button>
         </div>
@@ -483,42 +503,57 @@ function App() {
             <div className="chart-wrap">
               {history.length === 0 ? (
                 <div className="chart-empty">
-                  Añade una inversión para comenzar a ver la evolución de tu cartera.
+                  Añade una inversión para comenzar a ver la evolución de tu
+                  cartera.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={history}>
-                  <defs>
-                    <linearGradient id="valueFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#d8704f" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#d8704f" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="#e9e3da" vertical={false} />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: "#8b847d", fontSize: 11 }}
-                  />
-                  <YAxis hide domain={["dataMin - 1000", "dataMax + 500"]} />
-                  <Tooltip
-                    formatter={(value) => [
-                      `${Number(value).toLocaleString("es-ES")} $`,
-                      "Valor",
-                    ]}
-                    contentStyle={{
-                      border: "1px solid #e9e3da",
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#d8704f"
-                    strokeWidth={3}
-                    fill="url(#valueFill)"
-                  />
+                    <defs>
+                      <linearGradient
+                        id="valueFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#d8704f"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#d8704f"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="#e9e3da" vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: "#8b847d", fontSize: 11 }}
+                    />
+                    <YAxis hide domain={["dataMin - 1000", "dataMax + 500"]} />
+                    <Tooltip
+                      formatter={(value) => [
+                        `${Number(value).toLocaleString("es-ES")} $`,
+                        "Valor",
+                      ]}
+                      contentStyle={{
+                        border: "1px solid #e9e3da",
+                        borderRadius: 8,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#d8704f"
+                      strokeWidth={3}
+                      fill="url(#valueFill)"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               )}
