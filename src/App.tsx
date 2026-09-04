@@ -216,21 +216,27 @@ function App() {
       const result = recalculatePortfolio(positions, nextTransactions);
       if ("error" in result) throw new Error(result.error);
       const nextPositions = result.map((calculatedPosition) => {
-        const existing = positions.find((position) => position.symbol === calculatedPosition.symbol);
-        return existing ? { ...existing, ...calculatedPosition } : {
-          ...calculatedPosition,
-          id: Date.now(),
-          name: calculatedPosition.symbol,
-          category: "Acciones",
-          currency: "USD" as const,
-          color: "#876cbb",
-          isTransactionBased: true,
-        };
+        const existing = positions.find(
+          (position) => position.symbol === calculatedPosition.symbol,
+        );
+        return existing
+          ? { ...existing, ...calculatedPosition }
+          : {
+              ...calculatedPosition,
+              id: Date.now(),
+              name: calculatedPosition.symbol,
+              category: "Acciones",
+              currency: "USD" as const,
+              color: "#876cbb",
+              isTransactionBased: true,
+            };
       });
       await persistData(nextPositions, nextTransactions);
       setVaultError("");
     } catch (error) {
-      setVaultError(error instanceof Error ? error.message : "No se pudo importar el CSV.");
+      setVaultError(
+        error instanceof Error ? error.message : "No se pudo importar el CSV.",
+      );
     }
   };
   const rate = Number(usdToEur) > 0 ? Number(usdToEur) : 0.92;
@@ -239,18 +245,47 @@ function App() {
   const totalValue = metrics.value;
   const gain = metrics.unrealized;
   const portfolioHistory = useMemo(() => {
-    return [...transactions].sort((left, right) => left.date.localeCompare(right.date) || left.id - right.id).reduce<{ month: string; value: number }[]>((history, transaction) => {
-      const previousValue = history.at(-1)?.value ?? 0;
-      const direction = transaction.type === "Venta" || transaction.type === "Dividendo" ? 1 : -1;
-      return [...history, { month: transaction.date.slice(0, 7), value: Math.max(0, previousValue + direction * convertToBase(transaction.amount, transaction.currency, baseCurrency, rate)) }];
-    }, []);
+    return [...transactions]
+      .sort(
+        (left, right) =>
+          left.date.localeCompare(right.date) || left.id - right.id,
+      )
+      .reduce<{ month: string; value: number }[]>((history, transaction) => {
+        const previousValue = history.at(-1)?.value ?? 0;
+        const direction =
+          transaction.type === "Venta" || transaction.type === "Dividendo"
+            ? 1
+            : -1;
+        return [
+          ...history,
+          {
+            month: transaction.date.slice(0, 7),
+            value: Math.max(
+              0,
+              previousValue +
+                direction *
+                  convertToBase(
+                    transaction.amount,
+                    transaction.currency,
+                    baseCurrency,
+                    rate,
+                  ),
+            ),
+          },
+        ];
+      }, []);
   }, [baseCurrency, rate, transactions]);
   const gainPercent = totalInvested ? (gain / totalInvested) * 100 : 0;
   const allocation = useMemo(
     () =>
       positions.map((position) => ({
         name: position.symbol,
-        value: convertToBase(position.quantity * position.price, position.currency, baseCurrency, rate),
+        value: convertToBase(
+          position.quantity * position.price,
+          position.currency,
+          baseCurrency,
+          rate,
+        ),
         color: position.color,
       })),
     [baseCurrency, positions, rate],
@@ -405,7 +440,11 @@ function App() {
               id: Date.now(),
               name: calculatedPosition.symbol,
               category: "Acciones",
-              currency: nextTransactions.find((transaction) => transaction.symbol === calculatedPosition.symbol)?.currency ?? "USD",
+              currency:
+                nextTransactions.find(
+                  (transaction) =>
+                    transaction.symbol === calculatedPosition.symbol,
+                )?.currency ?? "USD",
               color: "#876cbb",
             };
       });
@@ -549,16 +588,30 @@ function App() {
             />
             <label className="header-control">
               <span>Base</span>
-              <select value={baseCurrency} onChange={(event) => setBaseCurrency(event.target.value as Currency)}>
+              <select
+                value={baseCurrency}
+                onChange={(event) =>
+                  setBaseCurrency(event.target.value as Currency)
+                }
+              >
                 <option>EUR</option>
                 <option>USD</option>
               </select>
             </label>
             <label className="header-control">
               <span>USD/EUR</span>
-              <input type="number" min="0.0001" step="0.0001" value={usdToEur} onChange={(event) => setUsdToEur(event.target.value)} />
+              <input
+                type="number"
+                min="0.0001"
+                step="0.0001"
+                value={usdToEur}
+                onChange={(event) => setUsdToEur(event.target.value)}
+              />
             </label>
-            <button className="secondary-button" onClick={() => csvInputRef.current?.click()}>
+            <button
+              className="secondary-button"
+              onClick={() => csvInputRef.current?.click()}
+            >
               Importar MetaTrader CSV
             </button>
             <input
@@ -580,10 +633,7 @@ function App() {
             <button className="secondary-button" onClick={exportTransactions}>
               Exportar CSV
             </button>
-            <button
-              className="secondary-button"
-              onClick={openNewTransaction}
-            >
+            <button className="secondary-button" onClick={openNewTransaction}>
               Registrar operación
             </button>
             <button className="primary-button" onClick={openNew}>
@@ -627,10 +677,26 @@ function App() {
               <ArrowUpRight size={15} /> +{gainPercent.toFixed(1)}% total
             </span>
             <span className="metric-note">
-              Realizada: {metrics.realized.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })}
+              Realizada:{" "}
+              {metrics.realized.toLocaleString("es-ES", {
+                style: "currency",
+                currency: baseCurrency,
+                maximumFractionDigits: 0,
+              })}
             </span>
             <span className="metric-note">
-              Dividendos: {metrics.dividends.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })} · Comisiones: {metrics.fees.toLocaleString("es-ES", { style: "currency", currency: baseCurrency, maximumFractionDigits: 0 })}
+              Dividendos:{" "}
+              {metrics.dividends.toLocaleString("es-ES", {
+                style: "currency",
+                currency: baseCurrency,
+                maximumFractionDigits: 0,
+              })}{" "}
+              · Comisiones:{" "}
+              {metrics.fees.toLocaleString("es-ES", {
+                style: "currency",
+                currency: baseCurrency,
+                maximumFractionDigits: 0,
+              })}
             </span>
           </article>
         </section>
@@ -645,7 +711,11 @@ function App() {
                 <option>Últimos 9 meses</option>
               </select>
             </div>
-            <div className="chart-wrap">
+            <div
+              className="chart-wrap"
+              role="img"
+              aria-label="Evolución del capital neto según las operaciones registradas"
+            >
               {portfolioHistory.length === 0 ? (
                 <div className="chart-empty">
                   Añade una inversión para comenzar a ver la evolución de tu
@@ -703,6 +773,29 @@ function App() {
                 </ResponsiveContainer>
               )}
             </div>
+            {portfolioHistory.length > 0 && (
+              <table
+                className="sr-only"
+                aria-label="Datos de evolución del capital"
+              >
+                <thead>
+                  <tr>
+                    <th>Periodo</th>
+                    <th>Capital neto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {portfolioHistory.map((point) => (
+                    <tr key={`${point.month}-${point.value}`}>
+                      <td>{point.month}</td>
+                      <td>
+                        {point.value.toLocaleString("es-ES")} {baseCurrency}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </article>
           <article className="panel allocation-panel">
             <div className="panel-heading">
@@ -711,7 +804,11 @@ function App() {
                 <h2>Distribución</h2>
               </div>
             </div>
-            <div className="donut-wrap">
+            <div
+              className="donut-wrap"
+              role="img"
+              aria-label="Distribución de la cartera por activo"
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie

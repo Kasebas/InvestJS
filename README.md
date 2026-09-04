@@ -14,8 +14,12 @@ Comandos de calidad:
 ```bash
 npm run lint
 npm test
+npm run test:ui
+npm run test:coverage
 npm run build
 ```
+
+La suite actual contiene 17 tests, incluyendo 2 pruebas de interfaz en jsdom. La cobertura se genera con `@vitest/coverage-v8` y se excluye del repositorio. El build separa Recharts en un chunk independiente para reducir el JavaScript inicial.
 
 ## GitHub Pages
 
