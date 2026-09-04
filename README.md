@@ -16,10 +16,13 @@ npm run lint
 npm test
 npm run test:ui
 npm run test:coverage
+npm run test:e2e
 npm run build
 ```
 
 La suite actual contiene 17 tests, incluyendo 2 pruebas de interfaz en jsdom. La cobertura se genera con `@vitest/coverage-v8` y se excluye del repositorio. El build separa Recharts en un chunk independiente para reducir el JavaScript inicial.
+
+Las pruebas E2E usan Chromium y levantan Vite automáticamente. Para publicar en GitHub Pages, activa **Settings > Pages > Source: GitHub Actions** en el repositorio; la URL esperada es `https://kasebas.github.io/InvestJS/`.
 
 ## GitHub Pages
 
