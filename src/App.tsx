@@ -21,7 +21,12 @@ import {
   X,
 } from "lucide-react";
 import "./App.css";
-import { createVault, hasVault, saveVault, unlockVault } from "./lib/secureStorage";
+import {
+  createVault,
+  hasVault,
+  saveVault,
+  unlockVault,
+} from "./lib/secureStorage";
 
 type Position = {
   id: number;
@@ -97,7 +102,9 @@ const history = [
 function App() {
   const [positions, setPositions] = useState(initialPositions);
   const [vaultPassword, setVaultPassword] = useState("");
-  const [vaultStatus, setVaultStatus] = useState<"checking" | "setup" | "locked" | "unlocked">("checking");
+  const [vaultStatus, setVaultStatus] = useState<
+    "checking" | "setup" | "locked" | "unlocked"
+  >("checking");
   const [vaultError, setVaultError] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -214,7 +221,15 @@ function App() {
       ? positions.map((position) =>
           position.id === editingId ? { ...position, ...next } : position,
         )
-      : [...positions, { ...next, id: Date.now(), currency: "USD" as const, color: "#876cbb" }];
+      : [
+          ...positions,
+          {
+            ...next,
+            id: Date.now(),
+            currency: "USD" as const,
+            color: "#876cbb",
+          },
+        ];
     void persistPositions(nextPositions);
     setIsModalOpen(false);
   };
@@ -223,12 +238,51 @@ function App() {
     return (
       <main className="vault-screen">
         <div className="vault-card">
-          <span className="brand-mark"><ChartNoAxesCombined size={22} /></span>
+          <span className="brand-mark">
+            <ChartNoAxesCombined size={22} />
+          </span>
           <p className="eyebrow">INVESTJS · DATOS LOCALES</p>
-          <h1>{vaultStatus === "checking" ? "Comprobando bóveda" : vaultStatus === "setup" ? "Protege tu cartera" : "Desbloquea tu cartera"}</h1>
-          {vaultStatus === "checking" ? <p className="vault-copy">Preparando el almacenamiento seguro de este navegador...</p> : <form onSubmit={vaultStatus === "setup" ? setupVault : unlock}><label>{vaultStatus === "setup" ? "Crea una contraseña local" : "Contraseña local"}<input autoFocus required minLength={8} type="password" value={passwordInput} onChange={(event) => setPasswordInput(event.target.value)} placeholder="Mínimo 8 caracteres" /></label><button className="primary-button modal-submit" type="submit">{vaultStatus === "setup" ? "Crear bóveda" : "Desbloquear"}</button></form>}
-          {vaultError && <p className="vault-error" role="alert">{vaultError}</p>}
-          <p className="vault-warning">La contraseña no se guarda ni se puede recuperar. Sin ella no podrás descifrar tus datos.</p>
+          <h1>
+            {vaultStatus === "checking"
+              ? "Comprobando bóveda"
+              : vaultStatus === "setup"
+                ? "Protege tu cartera"
+                : "Desbloquea tu cartera"}
+          </h1>
+          {vaultStatus === "checking" ? (
+            <p className="vault-copy">
+              Preparando el almacenamiento seguro de este navegador...
+            </p>
+          ) : (
+            <form onSubmit={vaultStatus === "setup" ? setupVault : unlock}>
+              <label>
+                {vaultStatus === "setup"
+                  ? "Crea una contraseña local"
+                  : "Contraseña local"}
+                <input
+                  autoFocus
+                  required
+                  minLength={8}
+                  type="password"
+                  value={passwordInput}
+                  onChange={(event) => setPasswordInput(event.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                />
+              </label>
+              <button className="primary-button modal-submit" type="submit">
+                {vaultStatus === "setup" ? "Crear bóveda" : "Desbloquear"}
+              </button>
+            </form>
+          )}
+          {vaultError && (
+            <p className="vault-error" role="alert">
+              {vaultError}
+            </p>
+          )}
+          <p className="vault-warning">
+            La contraseña no se guarda ni se puede recuperar. Sin ella no podrás
+            descifrar tus datos.
+          </p>
         </div>
       </main>
     );
@@ -254,6 +308,16 @@ function App() {
         </nav>
         <div className="sidebar-bottom">
           <span className="status-dot" /> Datos locales seguros
+          <button
+            className="lock-button"
+            type="button"
+            onClick={() => {
+              setVaultPassword("");
+              setVaultStatus("locked");
+            }}
+          >
+            Bloquear
+          </button>
         </div>
       </aside>
       <main className="main-content" id="dashboard">
@@ -491,9 +555,13 @@ function App() {
                           </button>
                           <button
                             className="icon-button danger"
-                            onClick={() => void persistPositions(
-                              positions.filter((item) => item.id !== position.id),
-                            )}
+                            onClick={() =>
+                              void persistPositions(
+                                positions.filter(
+                                  (item) => item.id !== position.id,
+                                ),
+                              )
+                            }
                             aria-label={`Eliminar ${position.symbol}`}
                             title="Eliminar"
                           >
